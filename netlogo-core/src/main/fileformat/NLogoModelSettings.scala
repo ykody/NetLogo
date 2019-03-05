@@ -10,7 +10,7 @@ import scala.util.Try
 trait ModelSettingsComponent[A <: ModelFormat[Array[String], A]] extends ComponentSerialization[Array[String], A] {
   val componentName = "org.nlogo.modelsection.modelsettings"
   override def addDefault = { (m: Model) =>
-    m.withOptionalSection(componentName, None, ModelSettings(false))
+    m.withOptionalSection(componentName, None, ModelSettings(true))
   }
   def serialize(m: Model): Array[String] = {
     val line =
@@ -24,7 +24,7 @@ trait ModelSettingsComponent[A <: ModelFormat[Array[String], A]] extends Compone
     Try {
       val foundValue =
         ModelSettings(s.headOption.flatMap(s => Try(s.toInt).toOption).map(_ != 0).getOrElse(false))
-      m.withOptionalSection(componentName, Some(foundValue), ModelSettings(false))
+      m.withOptionalSection(componentName, Some(foundValue), ModelSettings(true))
     }
   }
 }
