@@ -7,10 +7,10 @@ import org.scalatest.FunSuite
 import java.net.URI
 import java.nio.file.Path
 
-import org.nlogo.core.Model
+import org.nlogo.core.{ Model, OptionalSection }
 import org.nlogo.fileformat.{ defaultConverter, ConversionError, FailedConversionResult, ModelConversion,
-  SuccessfulConversion, ErroredConversion }
-import org.nlogo.api.{ ConfigurableModelLoader, Version }
+  SuccessfulConversion, ErroredConversion, NLogoModelSettings }
+import org.nlogo.api.{ ConfigurableModelLoader, Version, ModelSettings }
 
 class OpenModelTests extends FunSuite {
   val testURI = new URI("file:///foo.test")
@@ -120,6 +120,37 @@ class OpenModelTests extends FunSuite {
   test("OpenFromSource opens the model properly") { new OpenTest {
     val modelFromSource = OpenModelFromSource(uri, "model source", controller, loader, autoconverter, VersionInfo)
     assertResult(Some(Model()))(modelFromSource)
+  } }
+
+  test("addDefault opens a model with snapToGrid on"){ new OpenTest {
+    val modelS = Model()
+    val modelWithDefault = NLogoModelSettings.addDefault(modelS)
+    val expectedModelSettings = Some(ModelSettings(true))
+    assert(modelWithDefault.optionalSectionValue("org.nlogo.modelsection.modelsettings") == expectedModelSettings)
+  } }
+
+  test("opens a model with snapToGrid on"){ new OpenTest {
+    val modelS = Model(optionalSections = Seq(new OptionalSection("org.nlogo.modelsection.modelsettings", None, ModelSettings(true))))
+    val expectedModelSettings = Some(ModelSettings(true))
+    assert(modelS.optionalSectionValue("org.nlogo.modelsection.modelsettings") == expectedModelSettings)
+  } }
+
+  test("opens a model with snapToGrid off"){ new OpenTest {
+    val modelS = Model(optionalSections = Seq(new OptionalSection("org.nlogo.modelsection.modelsettings", None, ModelSettings(false))))
+    val expectedModelSettings = Some(ModelSettings(false))
+    assert(modelS.optionalSectionValue("org.nlogo.modelsection.modelsettings") == expectedModelSettings)
+  } }
+
+  test("opens a model with saved snapToGrid off"){ new OpenTest {
+    val modelS = Model(optionalSections = Seq(new OptionalSection("org.nlogo.modelsection.modelsettings", Some(ModelSettings(false)), ModelSettings(true))))
+    val expectedModelSettings = Some(ModelSettings(false))
+    assert(modelS.optionalSectionValue("org.nlogo.modelsection.modelsettings") == expectedModelSettings)
+  } }
+
+  test("opens a model with saved snapToGrid on"){ new OpenTest {
+    val modelS = Model(optionalSections = Seq(new OptionalSection("org.nlogo.modelsection.modelsettings", Some(ModelSettings(true)), ModelSettings(false))))
+    val expectedModelSettings = Some(ModelSettings(true))
+    assert(modelS.optionalSectionValue("org.nlogo.modelsection.modelsettings") == expectedModelSettings)
   } }
 }
 
