@@ -4,43 +4,60 @@ package org.nlogo.sdm.gui
 
 import java.io.{ ByteArrayOutputStream, ByteArrayInputStream, BufferedReader, StringReader }
 
-import org.jhotdraw.util.{ StorableInput, StorableOutput }
+import
+  cats.data.Validated.{ Invalid, Valid }
 
-import org.nlogo.core.{ Model => CoreModel }
-import org.nlogo.fileformat.{ NLogoFormat, NLogoThreeDFormat }
-import org.nlogo.api.{ AddableLoader, ComponentSerialization, ConfigurableModelLoader, ModelFormat,
-  AddableComponent }
+import
+  org.jhotdraw.util.{ StorableInput, StorableOutput }
 
-import scala.util.Try
-import scala.reflect.ClassTag
+import
+  org.nlogo.core.{ model, Model => CoreModel },
+    model.{ ElementFactory, MissingElement, XmlReader }
 
-abstract class AbstractNLogoGuiSDMFormat[A <: ModelFormat[Array[String], A]](implicit ct: ClassTag[A])
-  extends AddableComponent
-  with ComponentSerialization[Array[String], A] {
+import
+  org.nlogo.fileformat.{ NLogoXFormat, NLogoXFormatException }
+
+import org.nlogo.api.{ AddableLoader, ComponentSerialization, ConfigurableModelLoader }
+
+import
+  scala.util.{ Failure, Success, Try }
+
+class NLogoXGuiSDMFormat(factory: ElementFactory)
+  extends AddableLoader
+  with ComponentSerialization[NLogoXFormat.Section, NLogoXFormat] {
   override def componentName = "org.nlogo.modelsection.systemdynamics"
-  val guiComponentName = "org.nlogo.modelsection.systemdynamics.gui"
   override def addDefault = identity
-  override def serialize(m: CoreModel): Array[String] = {
-    m.optionalSectionValue[AggregateDrawing](guiComponentName)
-      .map(drawingStrings)
-      .getOrElse(Array[String]())
+  override def serialize(m: CoreModel): NLogoXFormat.Section = {
+    m.optionalSectionValue[AggregateDrawing](componentName)
+      .map(drawing => (drawingStrings(drawing), drawing.getModel.getDt))
+      .map {
+        case (strings, dt) =>
+          factory.newElement("systemDynamics")
+            .withAttribute("dt", dt.toString)
+            .withElement(
+              factory.newElement("jhotdraw6").withText(strings.mkString("\n")).build
+            )
+            .build
+      }
+      .getOrElse(factory.newElement("systemDynamics").build)
   }
 
   override def validationErrors(m: CoreModel): Option[String] =
     None
 
-  override def deserialize(s: Array[String]): CoreModel => Try[CoreModel] = { (m: CoreModel) =>
-    Try {
-      stringsToDrawing(s)
-        .map(sdm =>
-            m.withOptionalSection(guiComponentName, Some(sdm), sdm)
-              .withOptionalSection(componentName, Some(sdm.getModel), sdm.getModel))
-        .getOrElse(m)
-    }
+  override def deserialize(e: NLogoXFormat.Section): CoreModel => Try[CoreModel] = { (m: CoreModel) =>
+    XmlReader.allElementReader("jhotdraw6").read(e)
+      .map(XmlReader.childText _) match {
+        case Valid(sdm) =>
+          Try(stringsToDrawing(sdm.lines.toArray[String])
+            .map(drawing => m.withOptionalSection(componentName, Some(drawing), drawing))
+            .getOrElse(m))
+          case Invalid(_: MissingElement) => Success(m)
+          case Invalid(err) => Failure(new NLogoXFormatException(err.message))
+      }
   }
 
   private def drawingStrings(drawing: AggregateDrawing): Array[String] = {
-    drawing.synchronizeModel()
     if (drawing.getModel.elements.isEmpty)
       Array()
     else {
@@ -92,8 +109,5 @@ abstract class AbstractNLogoGuiSDMFormat[A <: ModelFormat[Array[String], A]](imp
                      "org.nlogo.sdm.gui")
 
   def addToLoader(loader: ConfigurableModelLoader): ConfigurableModelLoader =
-    loader.addSerializer[Array[String], A](this)
+    loader.addSerializer[NLogoXFormat.Section, NLogoXFormat](this)
 }
-
-class NLogoGuiSDMFormat extends AbstractNLogoGuiSDMFormat[NLogoFormat]
-class NLogoThreeDGuiSDMFormat extends AbstractNLogoGuiSDMFormat[NLogoThreeDFormat]

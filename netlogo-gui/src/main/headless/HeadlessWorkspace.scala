@@ -16,7 +16,7 @@ import org.nlogo.core.{ AgentKind, CompilerException, Femto, Model, Output, Prog
 import org.nlogo.agent.{ CompilationManagement, World, World2D, World3D }
 import org.nlogo.nvm.{ LabInterface, DefaultCompilerServices, PresentationCompilerInterface }
 import org.nlogo.workspace.{ AbstractWorkspace, AbstractWorkspaceScala, HubNetManagerFactory }
-import org.nlogo.fileformat, fileformat.{ NLogoFormat, NLogoThreeDFormat }
+import org.nlogo.fileformat, fileformat.{ NLogoFormat, NLogoXFormat, NLogoThreeDFormat }
 import org.nlogo.util.Pico
 
 import scala.io.Codec
@@ -486,6 +486,8 @@ with org.nlogo.api.ViewSettings {
         Femto.get[ComponentSerialization[Array[String], NLogoFormat]]("org.nlogo.sdm.NLogoSDMFormat"))
       .addSerializer[Array[String], NLogoThreeDFormat](
         Femto.get[ComponentSerialization[Array[String], NLogoThreeDFormat]]("org.nlogo.sdm.NLogoThreeDSDMFormat"))
+      .addSerializer[NLogoXFormat.Section, NLogoXFormat](
+        Femto.get[ComponentSerialization[NLogoXFormat.Section, NLogoXFormat]]("org.nlogo.sdm.NLogoXSDMFormat"))
   }
   /// Controlling API methods
 

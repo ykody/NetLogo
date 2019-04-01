@@ -13,20 +13,22 @@ import org.nlogo.app.common.{ CodeToHtml, Events => AppEvents, FileActions, Find
 import org.nlogo.app.interfacetab.{ InterfaceToolBar, WidgetPanel }
 import org.nlogo.app.tools.{ AgentMonitorManager, GraphicsPreview, LibraryManagerErrorDialog, PreviewCommandsEditor }
 import org.nlogo.awt.UserCancelException
-import org.nlogo.core.{ AgentKind, CompilerException, I18N, Model,
+import org.nlogo.core.{ AgentKind, CompilerException, Dialect, Femto, I18N, Model,
   Shape, Widget => CoreWidget }, Shape.{ LinkShape, VectorShape }
 import org.nlogo.core.model.WidgetReader
-import org.nlogo.fileformat
+import org.nlogo.fileformat, fileformat.{ ModelConversion, ModelConverter, ScalaXmlElementFactory, NLogoFormat }
 import org.nlogo.log.Logger
 import org.nlogo.nvm.{ PresentationCompilerInterface, Workspace }
 import org.nlogo.shape.{ LinkShapesManagerInterface, ShapesManagerInterface, TurtleShapesManagerInterface }
 import org.nlogo.util.{ NullAppHandler, Pico }
 import org.nlogo.window._
 import org.nlogo.window.Events._
-import org.nlogo.workspace.{ AbstractWorkspace, AbstractWorkspaceScala, Controllable, CurrentModelOpener, HubNetManagerFactory, WorkspaceFactory }
+import org.nlogo.workspace.{ AbstractWorkspace, AbstractWorkspaceScala,
+  Controllable, CurrentModelOpener, HubNetManagerFactory, SaveModel, SaveModelAs, WorkspaceFactory }
 
 import org.picocontainer.parameters.{ ComponentParameter, ConstantParameter }
 import org.picocontainer.Parameter
+import org.picocontainer.adapters.AbstractAdapter
 
 import scala.io.Codec
 /**
@@ -85,13 +87,48 @@ object App{
 
     if (Version.systemDynamicsAvailable) {
       pico.add("org.nlogo.sdm.gui.NLogoGuiSDMFormat")
-      pico.add("org.nlogo.sdm.gui.NLogoThreeDGuiSDMFormat")
+      pico.add(classOf[AddableLoader], "org.nlogo.sdm.gui.NLogoXGuiSDMFormat", new ConstantParameter(ScalaXmlElementFactory))
     }
     pico.addScalaObject("org.nlogo.sdm.gui.SDMGuiAutoConvertable")
+    class ModelLoaderComponent extends AbstractAdapter[ModelLoader](classOf[ModelLoader], classOf[ConfigurableModelLoader]) {
+      import scala.collection.JavaConverters._
 
-    pico.addAdapter(new Adapters.ModelLoaderComponent())
+      def getDescriptor(): String = "ModelLoaderComponent"
+      def verify(x$1: org.picocontainer.PicoContainer): Unit = {}
 
-    pico.addAdapter(new Adapters.ModelConverterComponent())
+      def getComponentInstance(container: org.picocontainer.PicoContainer, into: java.lang.reflect.Type) = {
+        val literalParser = Femto.scalaSingleton[org.nlogo.core.LiteralParser]("org.nlogo.parse.CompilerUtilities")
+
+        val loader =
+          fileformat.standardLoader(literalParser)
+        val additionalComponents =
+          container.getComponents(classOf[AddableLoader]).asScala
+        if (additionalComponents.nonEmpty)
+          additionalComponents.foldLeft(loader) {
+            case (l, component) => component.addToLoader(l)
+          }
+        else loader
+      }
+    }
+
+    pico.addAdapter(new ModelLoaderComponent())
+
+    class ModelConverterComponent extends AbstractAdapter[ModelConversion](classOf[ModelConversion], classOf[ModelConverter]) {
+      import scala.collection.JavaConverters._
+      def getDescriptor(): String = "ModelConverterComponent"
+      def verify(x$1: org.picocontainer.PicoContainer): Unit = {}
+      def getComponentInstance(container: org.picocontainer.PicoContainer, into: java.lang.reflect.Type) = {
+        val workspace = container.getComponent(classOf[org.nlogo.api.Workspace])
+        val allAutoConvertables =
+          fileformat.defaultAutoConvertables ++ container.getComponents(classOf[AutoConvertable]).asScala
+        fileformat.converter(workspace.getExtensionManager, workspace.getLibraryManager, workspace.getCompilationEnvironment, workspace, allAutoConvertables)(container.getComponent(classOf[Dialect]))
+}
+    }
+
+    pico.addAdapter(new ModelConverterComponent())
+
+
+    // pico.addAdapter(new Adapters.ModelConverterComponent())
 
     pico.addComponent(classOf[CodeToHtml])
     pico.addComponent(classOf[App])
@@ -880,8 +917,12 @@ class App extends
    * Should only be used by ModelResaver.
    */
   @throws(classOf[java.io.IOException])
-  private[nlogo] def saveOpenModel(): Unit = {
-    dispatchThreadOrBust(fileManager.saveModel(false))
+  private[nlogo] def saveOpenModel(controller: SaveModel.Controller): Unit = {
+    SaveModelAs(pico.getComponent(classOf[ModelSaver]).currentModel,
+      pico.getComponent(classOf[ModelLoader]),
+      controller,
+      pico.getComponent(classOf[AbstractWorkspaceScala]),
+      Version).foreach(thunk => thunk())
   }
 
   /**

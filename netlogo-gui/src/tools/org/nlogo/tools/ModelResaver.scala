@@ -1,5 +1,6 @@
 package org.nlogo.tools
 
+import java.awt.EventQueue
 import java.net.URI
 import java.nio.file.{ Files, FileVisitor, FileVisitResult, Path, Paths }
 
@@ -7,13 +8,14 @@ import scala.util.{ Failure, Success }
 
 import org.nlogo.core.{ Femto, LiteralParser, Model }
 import org.nlogo.api.{ NetLogoLegacyDialect, NetLogoThreeDDialect, Version }
+import org.nlogo.app.App
 import org.nlogo.workspace.{ OpenModel, OpenModelFromURI, SaveModel },
   OpenModel.{ Controller => OpenModelController },
   SaveModel.{ Controller => SaveModelController }
-import org.nlogo.fileformat, fileformat.{ FailedConversionResult, NLogoFormat }
+import org.nlogo.fileformat, fileformat.{ FailedConversionResult, NLogoFormat, NLogoXFormat, ScalaXmlElementFactory }
 import org.nlogo.workspace.ModelsLibrary.modelsRoot
 import org.nlogo.headless.HeadlessWorkspace
-import org.nlogo.sdm.{ NLogoSDMFormat, SDMAutoConvertable }
+import org.nlogo.sdm.{ NLogoSDMFormat, NLogoXSDMFormat, SDMAutoConvertable }
 
 /**
  *
@@ -34,6 +36,14 @@ import org.nlogo.sdm.{ NLogoSDMFormat, SDMAutoConvertable }
  *
  */
 object ModelResaver {
+
+  def wait(block: => Unit) {
+    EventQueue.invokeAndWait(
+      new Runnable() {
+        def run() { block }
+      })
+  }
+
   def main(args: Array[String]): Unit = {
     System.setProperty("org.nlogo.preferHeadless", "true")
 
@@ -63,6 +73,7 @@ object ModelResaver {
       val modelLoader =
         fileformat.standardLoader(ws.compiler.utilities)
           .addSerializer[Array[String], NLogoFormat](new NLogoSDMFormat())
+          .addSerializer[NLogoXFormat.Section, NLogoXFormat](new NLogoXSDMFormat(ScalaXmlElementFactory))
       val controller = new ResaveController(modelPath.toUri)
       val dialect =
         if (modelPath.toString.toUpperCase.endsWith("3D")) NetLogoThreeDDialect
@@ -114,10 +125,36 @@ object ModelResaver {
     }
   }
 
+  def resaveSystemDynamicsModels(paths: Seq[Path]): Seq[(Path, String)] = {
+    App.main(Array[String]())
+
+    var failedModels = List[(Path, String)]()
+
+    for (path <- paths) {
+      wait {
+        try {
+          val controller = new ResaveController(path.toUri)
+          App.app.open(path.toString)
+          App.app.saveOpenModel(controller)
+          1L
+        }
+        catch {
+          case e: Exception => failedModels :+= ((path, e.getMessage)); 1L
+        }
+      }
+    }
+    wait {
+      App.app.quit(); 1L
+    }
+    failedModels
+  }
+
   class ResaveController(path: URI) extends OpenModelController with SaveModelController {
     // SaveModelController
     def chooseFilePath(modelType: org.nlogo.api.ModelType): Option[java.net.URI] = {
-      Some(path)
+      val pathSegments = path.toString.split("\\.")
+      val nlogoXPath = pathSegments.init
+      Some(new URI((nlogoXPath :+ "nlogox").mkString(".")))
     }
     def shouldSaveModelOfDifferingVersion(version: String): Boolean = true
     def warnInvalidFileFormat(format: String): Unit = {

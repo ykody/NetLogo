@@ -2,6 +2,7 @@
 
 package org.nlogo.headless
 
+import org.nlogo.core.Femto
 import org.nlogo.api.{ ModelLoader, ComponentSerialization, ConfigurableModelLoader }
 import org.nlogo.nvm.{ DefaultCompilerServices, PresentationCompilerInterface }
 
@@ -17,11 +18,10 @@ class ModelLoaderComponent extends AbstractAdapter[ModelLoader](classOf[ModelLoa
 
   def getComponentInstance(container: PicoContainer, into: java.lang.reflect.Type) = {
     import scala.collection.JavaConverters._
+    val literalParser =
+      Femto.scalaSingleton[org.nlogo.core.LiteralParser]("org.nlogo.parse.CompilerUtilities")
+    val loader = fileformat.standardLoader(literalParser)
 
-    val compiler =
-      container.getComponent(classOf[PresentationCompilerInterface])
-    val compilerServices = new DefaultCompilerServices(compiler)
-    val loader = fileformat.standardLoader(compilerServices)
     val additionalComponents =
       container.getComponents(classOf[ComponentSerialization[Array[String], NLogoFormat]]).asScala
     if (additionalComponents.nonEmpty)

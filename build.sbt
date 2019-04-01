@@ -30,10 +30,10 @@ lazy val scalaSettings = Seq(
   scalaSource in Test    := baseDirectory.value / "src" / "test",
   crossPaths             := false, // don't cross-build for different Scala versions
   scalacOptions ++=
-    "-deprecation -unchecked -feature -Xcheckinit -encoding us-ascii -target:jvm-1.8 -opt:l:method -Xlint -Xfatal-warnings"
+    "-deprecation -unchecked -feature -Xcheckinit -encoding us-ascii -target:jvm-1.8 -opt:l:method -Xlint" // -Xfatal-warnings"
       .split(" ").toSeq,
   // we set doc options until https://github.com/scala/bug/issues/10402 is fixed
-  scalacOptions in Compile in doc --= "-Xlint -Xfatal-warnings".split(" ").toSeq
+  scalacOptions in Compile in doc --= "-Xlint".split(" ").toSeq
 )
 
 // These settings are common to all builds that compile against Java
@@ -110,6 +110,8 @@ lazy val netlogo = project.in(file("netlogo-gui")).
   settings(EventsGenerator.settings: _*).
   settings(Docs.settings: _*).
   settings(publicationSettings("NetLogo-JVM"): _*).
+  settings(shareSourceDirectory("netlogo-core"): _*).
+  settings(XmlReaderGenerator.bspaceSettings: _*).
   settings(flexmarkDependencies).
   settings(Defaults.coreDefaultSettings ++
            Testing.settings ++
@@ -150,6 +152,7 @@ lazy val netlogo = project.in(file("netlogo-gui")).
       "org.parboiled" %% "parboiled" % "2.1.3",
       "org.jogamp.jogl" % "jogl-all" % "2.3.2",
       "org.jogamp.gluegen" % "gluegen-rt" % "2.3.2",
+      "org.scala-lang.modules" %% "scala-xml" % "1.0.6",
       "org.jhotdraw" % "jhotdraw" % "6.0b1" % "provided,optional" from cclArtifacts("jhotdraw-6.0b1.jar"),
       "org.jmock" % "jmock" % "2.5.1" % "test",
       "org.jmock" % "jmock-legacy" % "2.5.1" % "test",
@@ -195,6 +198,7 @@ lazy val headless = (project in file ("netlogo-headless")).
   settings(includeInPackaging(parserJVM): _*).
   settings(shareSourceDirectory("netlogo-core"): _*).
   settings(Dump.settings: _*).
+  settings(XmlReaderGenerator.bspaceSettings: _*).
   settings(ChecksumsAndPreviews.settings: _*).
   settings(
     name          := "NetLogoHeadless",
@@ -206,6 +210,7 @@ lazy val headless = (project in file ("netlogo-headless")).
     nogen                        := { System.setProperty("org.nlogo.noGenerator", "true") },
     libraryDependencies          ++= Seq(
       "org.ow2.asm" % "asm-all" % "5.0.4",
+      "org.scala-lang.modules" %% "scala-xml" % "1.0.6",
       "org.parboiled" %% "parboiled" % "2.1.3",
       "commons-codec" % "commons-codec" % "1.10",
       "com.typesafe" % "config" % "1.3.1",
@@ -286,13 +291,16 @@ lazy val parser = crossProject(JSPlatform, JVMPlatform).
   settings(commonSettings: _*).
   settings(scalaSettings: _*).
   settings(scalastyleSettings: _*).
+  settings(XmlReaderGenerator.parserSettings: _*).
   settings(publicationSettings("NetLogoHeadless"): _*).
   settings(
     isSnapshot := true,
     name := "parser",
     version := "0.3.0-RC1",
     unmanagedSourceDirectories in Compile += baseDirectory.value.getParentFile / "parser-core" / "src" / "main",
-    unmanagedSourceDirectories in Test    += baseDirectory.value.getParentFile / "parser-core" / "src" / "test").
+    unmanagedSourceDirectories in Test    += baseDirectory.value.getParentFile / "parser-core" / "src" / "test",
+    autogenRoot     := baseDirectory.value.getParentFile / "autogen"
+    ).
   jsConfigure(_.dependsOn(sharedResources % "compile-internal->compile")).
   jsConfigure(_.dependsOn(macros % "compile-internal->compile;test-internal->compile")).
   jsSettings(
@@ -307,6 +315,8 @@ lazy val parser = crossProject(JSPlatform, JVMPlatform).
           "org.scalatest"  %%% "scalatest" % "3.0.0" % "test",
           // scalatest doesn't yet play nice with scalacheck 1.13.0
           "org.scalacheck" %%% "scalacheck" % "1.13.4" % "test",
+          "org.typelevel"  %%%! "cats-core" % "1.0.0-MF",
+          "org.typelevel"  %%%! "cats-kernel" % "1.0.0-MF"
       )}).
   jvmConfigure(_.dependsOn(sharedResources)).
   jvmSettings(jvmSettings: _*).
@@ -314,7 +324,9 @@ lazy val parser = crossProject(JSPlatform, JVMPlatform).
   jvmSettings(
       mappings in (Compile, packageBin) ++= mappings.in(sharedResources, Compile, packageBin).value,
       mappings in (Compile, packageSrc) ++= mappings.in(sharedResources, Compile, packageSrc).value,
-      libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.5"
+    libraryDependencies += "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.5",
+    libraryDependencies += "org.typelevel" %% "cats-core" % "1.0.0-MF",
+    libraryDependencies += "org.typelevel" %% "cats-kernel" % "1.0.0-MF",
     )
 
 lazy val parserJVM = parser.jvm
