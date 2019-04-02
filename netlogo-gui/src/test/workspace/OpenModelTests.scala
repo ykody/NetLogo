@@ -133,19 +133,19 @@ class OpenModelTests extends FunSuite {
 
   test("serializes various dimensions in the model") { new OpenTest {
     assert((nlogoformat.interfaceComponent.serialize(new Model)) ===
-      Array("GRAPHICS-WINDOW", "0", "0", "5", "5", "-1", "-1", "12.0",
+      Array("GRAPHICS-WINDOW", "0", "0", "5", "5", "-1", "-1", "12",
         "1", "13", "1", "1", "1", "0", "1", "1", "1", "0", "0", "0",
-        "0", "1", "1", "1", "ticks", "30.0", ""))
+        "0", "1", "1", "1", "ticks", "30", ""))
     assert(nlogoformat.interfaceComponent.serialize(new Model(widgets =
       List(View(dimensions = new WorldDimensions(0,0,0,0,12.0,true,true))))) ===
-      Array("GRAPHICS-WINDOW", "0", "0", "5", "5", "-1", "-1", "12.0",
+      Array("GRAPHICS-WINDOW", "0", "0", "5", "5", "-1", "-1", "12",
         "1", "13", "1", "1", "1", "0", "1", "1", "1", "0", "0", "0",
-        "0", "1", "1", "1", "ticks", "30.0", ""))
+        "0", "1", "1", "1", "ticks", "30", ""))
     assert(nlogoformat.interfaceComponent.serialize(new Model(widgets =
       List(View(dimensions = new WorldDimensions3D(0,0,0,0,0,0,12.0,true,true))))) ===
-      Array("GRAPHICS-WINDOW", "0", "0", "5", "5", "-1", "-1", "12.0",
+      Array("GRAPHICS-WINDOW", "0", "0", "5", "5", "-1", "-1", "12",
         "1", "13", "1", "1", "1", "0", "1", "1", "1", "0", "0", "0",
-        "0", "1", "1", "1", "ticks", "30.0", ""))
+        "0", "1", "1", "1", "ticks", "30", ""))
   } }
 
   test("deserializes various dimensions for models") { new OpenTest {
