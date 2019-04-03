@@ -93,6 +93,9 @@ private [gui] class ProgressDialog(dialog: java.awt.Dialog, supervisor: Supervis
     scrollPane.setMinimumSize(scrollPane.getPreferredSize())
 
     c.weighty = 0.0
+    val displaySwitch = new JCheckBox(displaySwitchAction)
+    displaySwitch.setSelected(true)
+    workspace.enableDisplayUpdates()
     c.fill = java.awt.GridBagConstraints.HORIZONTAL
     getContentPane.add(displaySwitch, c)
 
@@ -126,7 +129,10 @@ private [gui] class ProgressDialog(dialog: java.awt.Dialog, supervisor: Supervis
     plotWidgetOption.foreach{ plotWidget => if(updatePlots) plotWidget.handle(null) }
   }
   lazy val displaySwitchAction = RichAction("Update view") { e =>
-    workspace.displaySwitchOn(e.getSource.asInstanceOf[JCheckBox].isSelected)
+    if (e.getSource.asInstanceOf[JCheckBox].isSelected)
+      workspace.enableDisplayUpdates()
+    else
+      workspace.disableDisplayUpdates()
   }
   lazy val plotsAndMonitorsSwitchAction = RichAction("Update plots and monitors") { e =>
     updatePlots = e.getSource.asInstanceOf[JCheckBox].isSelected
@@ -139,7 +145,7 @@ private [gui] class ProgressDialog(dialog: java.awt.Dialog, supervisor: Supervis
 
   def updateView(check: Boolean): Unit = {
     displaySwitch.setSelected(check)
-    workspace.displaySwitchOn(check)
+    workspace.enableDisplayUpdates()
   }
 
   def setUpdateView(status: Boolean): Unit = {
@@ -163,7 +169,7 @@ private [gui] class ProgressDialog(dialog: java.awt.Dialog, supervisor: Supervis
     timer.stop()
     setVisible(false)
     dispose()
-    workspace.displaySwitchOn(true)
+    workspace.enableDisplayUpdates()
     workspace.setPeriodicUpdatesEnabled(true)
   }
 

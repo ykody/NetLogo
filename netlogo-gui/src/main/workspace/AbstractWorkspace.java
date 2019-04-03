@@ -58,7 +58,7 @@ public abstract strictfp class AbstractWorkspace
     this._world = world;
     evaluator = new Evaluator(this);
     jobManager = Femto.getJ(JobManagerInterface.class, "org.nlogo.job.JobManager",
-        new Object[]{this, world, world});
+        new Object[]{this, world});
     extensionManager = new ExtensionManager(this, new JarLoader(this));
   }
 
@@ -204,7 +204,7 @@ public abstract strictfp class AbstractWorkspace
 
   public void halt() {
     jobManager.haltPrimary();
-    _world.displayOn(true);
+    enablePeriodicRendering();
   }
 
   // called by _display from job thread
