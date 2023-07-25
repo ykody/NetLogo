@@ -87,11 +87,24 @@ class CodeTabsPanel(workspace:            GUIWorkspace,
     }
   })
 
+  codeTabContainer.addWindowFocusListener(new WindowAdapter() {
+    override def windowGainedFocus(e: WindowEvent) {
+      println("  ")
+      println("CodeTabsPanel, windowGainedFocus")
+      tabManager.__PrintStateInfo
+    }
+    })
+
   def stateChanged(e: ChangeEvent) = {
     // for explanation of index -1, see comment in Tabs.stateChanged. AAB 10/2020
+     println(" ")
+    println("CodeTabsPanel, stateChanged")
+    tabManager.__PrintStateInfo()
     if (tabManager.getSelectedAppTabIndex != -1) {
       val previousTab = getCurrentTab
       currentTab = getSelectedComponent
+      tabManager.__printSwingObject(previousTab,  "   previousTab")
+      tabManager.__printSwingObject(currentTab,  "   currentTab")
       // currentTab could be null in the case where the CodeTabPanel has only the MainCodeTab. AAB 10/2020
       if (currentTab == null) {
         currentTab = mainCodeTab
@@ -101,6 +114,7 @@ class CodeTabsPanel(workspace:            GUIWorkspace,
         case (false, true) => tabManager.appTabsPanel.saveModelActions foreach tabManager.menuBar.revokeAction
         case _             =>
       }
+
       // The SwitchedTabsEvent will cause compilation when the user leaves an edited CodeTab. AAB 10/2020
       new AppEvents.SwitchedTabsEvent(previousTab, currentTab).raise(this)
     }

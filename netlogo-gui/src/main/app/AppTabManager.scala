@@ -55,6 +55,30 @@ class AppTabManager(val appTabsPanel:          Tabs,
   def getAppTabsPanel = { appTabsPanel }
   def getMainCodeTab = { appTabsPanel.getMainCodeTab }
 
+  // Only one of the AbstractTabsPanels (Tabs or CodeTabsPanel) should be active at a time
+  // That panel will will have a selected tab with a corresponding selected Index
+  // The other panel will have a selected index of -1, so the user can select one of its tabs
+  var activeTabsPanel: AbstractTabsPanel = appTabsPanel
+  def getActiveTabsPanel = { activeTabsPanel }
+  def setActiveTabsPanel(tabsPanel: AbstractTabsPanel): Unit = { activeTabsPanel = tabsPanel}
+
+  // Only one tab should be active at a time
+  var activeTab: Component = appTabsPanel.interfaceTab
+  def getActiveTab = { activeTab }
+  def setActiveTab(tab: Component): Unit = { activeTab = tab}
+
+  // A non-active TabsPanel exists whenever there are two tab panels
+  def getNonActiveTabsPanel(): Option[JTabbedPane] = {
+    codeTabsPanelOption match {
+      case None => None
+      case Some(tabsPanel) => if (tabsPanel == getActiveTab) {
+        Some(tabsPanel.asInstanceOf[JTabbedPane])
+      } else {
+          Some(appTabsPanel.asInstanceOf[JTabbedPane])
+      }
+    }
+  }
+
   // The separate window and JTabbedPane containing the main code tab and
   // other code tabs can come in an out of existence, and are hence
   // represented by a scala Option, which has value 'None' when code tabs
@@ -62,6 +86,13 @@ class AppTabManager(val appTabsPanel:          Tabs,
   def setCodeTabsPanelOption(_codeTabsPanelOption: Option[CodeTabsPanel]): Unit = {
     codeTabsPanelOption = _codeTabsPanelOption
   }
+
+  // The following bookkeeping is needed so we can ignore a windowGainedFocus event
+  // that happens to an AbstractTabsPanels when a separate code tab is being created or destroyed.
+  // true only during the action of switchToSeparateCodeWindow
+  var separatingCodeTab = false
+  // true only during the action of switchToNoSeparateCodeWindow
+  var rejoiningCodeTab = false
 
   // might want access to these owner methods to be only in the app package
   // Need to carefully decide which methods are private. AAB 10/2020
@@ -108,6 +139,13 @@ class AppTabManager(val appTabsPanel:          Tabs,
   // any tab in Tabs that is not of class CodeTab AAB 10/2020
   def setSelectedAppTab(index: Int): Unit = {
     appTabsPanel.setSelectedIndex(index)
+    if (index == -1 ) {
+      val appTab = appTabsPanel.getSelectedComponent
+      if (appTab != null)
+        __printSwingObject(appTab, "SelectedComponent when SelectedIndex = -1: ")
+    } else {
+      println("SelectedIndex = -1, SelectedComponent = null")
+    }
   }
 
   def getSelectedAppTabIndex() = { appTabsPanel.getSelectedIndex }
@@ -209,6 +247,9 @@ class AppTabManager(val appTabsPanel:          Tabs,
     */
   private def setPanelsSelectedIndexHelper(tabOwner: AbstractTabsPanel, tabIndex: Int): Unit = {
     val selectedIndex = tabOwner.getSelectedIndex
+    println("setPanelsSelectedIndexHelper ")
+    println(s"Tab Index:      $tabIndex")
+    println(s"Selected Index: $selectedIndex")
     if (selectedIndex == tabIndex) {
       // Saves selected tab as current tab
       tabOwner.setCurrentTab(tabOwner.getComponentAt(tabIndex))
@@ -252,6 +293,8 @@ class AppTabManager(val appTabsPanel:          Tabs,
     codeTabsPanelOption match {
       case None                => // nothing to do
       case Some(codeTabsPanel) => {
+        println("\n*** begin no SeparateCodeWindow")
+        rejoiningCodeTab = true
         setCodeTabsPanelOption(None)
         // Move the tabs to the AppTabsPanel (Tabs), retaining order. AAB 10/2020
         for (_ <- 0 until codeTabsPanel.getTabCount) {
@@ -259,9 +302,12 @@ class AppTabManager(val appTabsPanel:          Tabs,
         }
         codeTabsPanel.getCodeTabContainer.dispose
         appTabsPanel.mainCodeTab.getPoppingCheckBox.setSelected(false)
+        // aab july - could be to temp code tab if use shortcut
         appTabsPanel.mainCodeTab.requestFocus
         appTabsPanel.getAppFrame.removeLinkComponent(codeTabsPanel.getCodeTabContainer)
         Event.rehash()
+        rejoiningCodeTab = false
+        println("*** end no SeparateCodeWindow")
       } // end case where work was done. AAB 10/2020
     }
   }
@@ -269,6 +315,8 @@ class AppTabManager(val appTabsPanel:          Tabs,
   // Does the work needed to go back to the separate code window state
   def switchToSeparateCodeWindow(): Unit = {
     if (!isCodeTabSeparate) {
+      println("\n*** begin switchToSeparateCodeWindow")
+      separatingCodeTab = true
       val codeTabsPanel = new CodeTabsPanel(appTabsPanel.workspace,
         appTabsPanel.interfaceTab,
         appTabsPanel.externalFileManager,
@@ -302,10 +350,14 @@ class AppTabManager(val appTabsPanel:          Tabs,
       appTabsPanel.mainCodeTab.getPoppingCheckBox.setSelected(true)
       codeTabsPanel.setSelectedComponent(appTabsPanel.mainCodeTab)
       appTabsPanel.setSelectedComponent(appTabsPanel.interfaceTab)
+      // aab july what if they used a shortcut
+      //codeTabsPanel.setSelectedComponent(appTabsPanel.mainCodeTab)
       appTabsPanel.getAppFrame.addLinkComponent(codeTabsPanel.getCodeTabContainer)
       createCodeTabAccelerators()
       Event.rehash()
       codeTabsPanel.mainCodeTab.requestFocus
+      separatingCodeTab = false
+      println("end switchToSeparateCodeWindow")
     }
   }
 
@@ -909,6 +961,19 @@ class AppTabManager(val appTabsPanel:          Tabs,
     println("    " + "opposite window: " + __getSimpleName(e.getOppositeWindow))
   }
 
+
+  def __PrintStateInfo(): Unit = {
+    __printSwingObject(activeTabsPanel, "Active TabsPanel: ")
+    __printSwingObject(activeTab, "Active Tab: ")
+    println(s"   Selected Index in Active TabsPanel: ${activeTabsPanel.getSelectedIndex}")
+    //println(s"   Selected Index in Main Window: ${getSelectedAppTabIndex}")
+ //   __printSwingObject(appTabsPanel.getSelectedComponent,    "   Selected Component Main Window: ")
+ //   __printOptionSwingObject(getSelectedNonCodeTabComponent, "   Selected Non-CodeTab Component: ")
+    //val owner = getCodeTabsOwner
+    //println("   Selected Index in " + __getSimpleName(owner) + ": " + owner.getSelectedIndex)
+ //   __printOptionSwingObject(getSelectedCodeTabComponent, "   Selected CodeTab Component")
+  }
+
   def __PrintStateInfo(previousTab: Component, currentTab: Component): Unit = {
     println("    Previous Tab: " + __getSimpleName(previousTab))
     println("    Current Tab: " + __getSimpleName(currentTab))
@@ -942,7 +1007,7 @@ class AppTabManager(val appTabsPanel:          Tabs,
     }
   }
 
-  def __PrintHideUndoMenuCounts(): Unit = {
+  def __printHideUndoMenuCounts(): Unit = {
     println("    Hide count: " + __countMenuItembyNameAndMenuName("Tools", "Hide Command Center"))
     println("    Undo count: " + __countMenuItembyNameAndMenuName("Edit", "Undo"))
   }

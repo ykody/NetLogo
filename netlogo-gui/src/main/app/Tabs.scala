@@ -100,8 +100,12 @@ class Tabs(workspace:           GUIWorkspace,
 
   jframe.addWindowFocusListener(new WindowAdapter() {
     override def windowGainedFocus(e: WindowEvent) {
+      println("  ")
+      println("Tabs, windowGainedFocus")
+      tabManager.__PrintStateInfo
       val currentTab = getTabs.getSelectedComponent
       if (tabManager.getMainCodeTab.dirty) {
+        println("   Create SwitchedTabsEvent")
         // The SwitchedTabsEvent can lead to compilation. AAB 10/2020
          new AppEvents.SwitchedTabsEvent(tabManager.getMainCodeTab, currentTab).raise(getTabs)
       }
@@ -114,10 +118,15 @@ class Tabs(workspace:           GUIWorkspace,
     // tab index of the parent JTabbedPane to -1
     // In that case do nothing. The correct action will happen when
     // the selected index is reset. AAB 10/2020
+    println(" ")
+    println("Tabs, stateChanged")
+    tabManager.__PrintStateInfo()
     if (tabManager.getSelectedAppTabIndex != -1) {
       val previousTab = currentTab
       currentTab = getSelectedComponent
 
+      tabManager.__printSwingObject(previousTab,  "   previousTab")
+      tabManager.__printSwingObject(currentTab,  "   currentTab")
       previousTab match {
         case mt: MenuTab => mt.activeMenuActions foreach menu.revokeAction
         case _ =>
@@ -132,6 +141,7 @@ class Tabs(workspace:           GUIWorkspace,
         case (false, true) => saveModelActions foreach menu.revokeAction
         case _             =>
       }
+
       new AppEvents.SwitchedTabsEvent(previousTab, currentTab).raise(this)
     }
   }
