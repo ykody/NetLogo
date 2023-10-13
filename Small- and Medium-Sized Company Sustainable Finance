@@ -1,0 +1,260 @@
+breed [employees employees-at-small-businesses]
+breed [employees-at-banks employees-at-regional-banks]
+
+globals [
+  desirable-product
+  product-diff
+  count-matching-products
+]
+
+employees-own [
+  information-received 
+  knowledge
+  capital
+  product
+  state
+]
+
+employees-at-banks-own [
+  information
+]
+
+to setup
+  clear-all
+  create-employees employee-number [
+    set color red
+    setxy random-xcor random-ycor
+    set knowledge one-of ["A" "B"]
+    set capital 15
+    set product "none"
+    set state one-of ["S" "T"]
+  ]
+  create-employees-at-banks banker-number [
+    set shape "star"
+    set color blue
+    setxy random-xcor random-ycor
+    set information one-of ["A" "B"]
+  ]
+  reset-ticks
+end
+
+to go
+  ifelse model = "teal" [
+    going1 make-product1 consult-and-receive-information1 link-death
+  ] [
+    going2 make-product2 consult-and-receive-information2 link-death
+  ]
+  if ticks = tick-limit [stop]
+  tick
+  update-desirable-product
+  update-product-diff
+  
+end
+
+to make-product1
+  ask employees [
+    if product = "none" and capital > 0 [
+      ifelse knowledge = "A" and capital >= 1 [
+        set capital capital - 1
+        set product "A"
+      
+        if product = desirable-product [
+          set count-matching-products count-matching-products + 1
+        ]
+      ] [
+        ifelse knowledge = "B" and capital >= 1 [
+          set capital capital - 1
+          set product "B"
+         
+          if product = desirable-product [
+            set count-matching-products count-matching-products + 1
+          ]
+        ]
+        []
+      ]
+    ]
+    
+    if capital = 10 and link-neighbors != nobody and ticks < 250 [ 
+      let random-capital-increase 10 + random 6 
+      ask one-of employees-at-banks-on link-neighbors [
+        set capital capital + random-capital-increase
+      ]
+    ]
+  ]
+end
+
+
+to make-product2
+  ask employees [
+    if product = "none" and capital > 0 [
+      ifelse knowledge = "A" and capital >= 1 [
+        set capital capital - 1
+        set product "A"
+        
+        if product = desirable-product [
+          set count-matching-products count-matching-products + 1
+        ]
+      ] [
+        ifelse knowledge = "B" and capital >= 1 [
+          set capital capital - 1
+          set product "B"
+          
+          if product = desirable-product [
+            set count-matching-products count-matching-products + 1
+          ]
+        ]
+        []
+      ]
+    ]
+
+    if capital = 10 and link-neighbors != nobody [
+      
+        if random 100 < 50 [ 
+          ask one-of employees-at-banks-on link-neighbors [
+            set capital capital + 15 - 5
+          ]
+        ]
+    ]
+  ]
+end
+
+
+to consult-and-receive-information1
+  ask employees [
+      if desirable-product = "A" [
+        ifelse random 100 < 75 [
+          set information-received "A"
+        ] [
+          set information-received "B"
+        ]
+      ]  
+        ifelse random 100 < 75 [
+          set information-received "B"
+        ] [
+          set information-received "A"
+        ]
+      
+  
+      ifelse information-received = "A" [
+        set product "A"
+        set capital capital - 10
+       
+        if product = desirable-product [
+          set count-matching-products count-matching-products + 1
+        ]
+      ] [
+        set product "B"
+        set capital capital - 10
+        
+        if product = desirable-product [
+          set count-matching-products count-matching-products + 1
+        ]
+      ]
+    ]
+  
+end
+
+to consult-and-receive-information2
+  ask employees [
+    ifelse any? link-neighbors with [breed = employees-at-banks] [
+      if desirable-product = "A" [
+        ifelse random 100 < 75 [
+          set information-received "B"
+        ] [ 
+          set information-received "A"
+        ]
+    ]
+    ] 
+    [
+        ifelse random 100 < 75 [
+          set information-received "A"
+        ] [
+          set information-received "B"
+        ]
+      ]
+    
+      ifelse information-received = "A" [
+        set product "A"
+        set capital capital - 15
+       
+        if product = desirable-product [
+          set count-matching-products count-matching-products + 1
+        ]
+      ] [
+        set product "B"
+        set capital capital - 15
+       
+        if product = desirable-product [
+          set count-matching-products count-matching-products + 1
+        ]
+      ]
+    ]
+  
+end
+
+to going1
+  ask employees [
+    fd 1
+    update-desirable-product
+  ]
+
+  ask employees [
+    update-product-diff
+    matching-products-counter
+  ]
+  if ticks <= 250 [
+  ask n-of (count employees * 0.25) employees [
+    create-link-with one-of employees-at-banks
+  ]
+  ]
+  
+  if ticks > 250
+  [
+  ask n-of (count employees * 0.75) employees [
+    create-link-with one-of employees-at-banks
+  ]
+  ]
+  
+end
+
+to going2
+  ask employees [
+    fd 1
+    update-desirable-product
+  ]
+
+  ask employees [
+    update-product-diff
+    matching-products-counter
+  ]
+  ask n-of (count employees * 0.5) employees [
+    create-link-with one-of employees-at-banks
+  ]
+end
+
+to link-death
+ask links [
+    die
+  ]
+end
+
+to update-desirable-product
+ 
+  ifelse random 100 < 50 [
+    set desirable-product "A"
+  ] [
+    set desirable-product "B"
+  ]
+end
+
+to update-product-diff
+ 
+  set product-diff count employees with [product != desirable-product]
+end
+
+to matching-products-counter
+ 
+  if product = desirable-product [
+    set count-matching-products count-matching-products + 1
+  ]
+end
